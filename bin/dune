@@ -1,0 +1,4 @@
+(executable
+ (public_name recinf)
+ (name main)
+ (libraries recinf))
