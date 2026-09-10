@@ -1,0 +1,30 @@
+# Dune build artifacts
+_build/
+*.install
+*.merlin
+.merlin
+
+# OCaml compiled files
+*.cmi
+*.cmo
+*.cmx
+*.cma
+*.cmxa
+*.cmxs
+*.cmt
+*.cmti
+*.annot
+*.o
+*.a
+*.so
+*.byte
+*.native
+
+# opam / local switch
+_opam/
+.opam/
+
+# Editor / OS
+*~
+.*.swp
+.DS_Store
