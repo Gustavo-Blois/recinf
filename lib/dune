@@ -1,5 +1,6 @@
 (library
  (name recinf)
+ (libraries stem.snowball)
 )
 
 

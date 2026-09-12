@@ -1,2 +1,1 @@
-let () = print_endline @@ String.concat "!!!!" @@ Recinf.Token.tokenize "Hello, World!"
-
+let () = print_endline @@ String.concat " " @@ Recinf.Utils.words_of_file "data/cran.all.1400"
