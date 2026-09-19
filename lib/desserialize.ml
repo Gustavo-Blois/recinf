@@ -20,7 +20,8 @@ let create_documents word_list =
     word_list
     |> List.drop_while is_doc_marker
     |> List.drop_while (fun x -> not (is_doc_marker x))
-  in    {index;title;authors;bibliography;text},word_list
+  in    
+  {index;title;authors;bibliography;text},word_list
   in
   let rec desserialize_while_not_empty words = 
     match (desserialize words) with
