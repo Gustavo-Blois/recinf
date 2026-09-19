@@ -5,22 +5,27 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github Gustavo-Blois/recinf))
 
-(authors "Author Name <author@example.com>")
+(authors "Gustavo Blois <vlmblois@gmail.com>")
 
-(maintainers "Maintainer Name <maintainer@example.com>")
+(maintainers "Gustavo Blois <vlmblois@gmail.com>")
 
-(license LICENSE)
-
-(documentation https://url/to/documentation)
+(license MIT)
 
 (package
  (name recinf)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml)
+ (synopsis "Information retrieval exercises over the Cranfield collection")
+ (description
+  "Tokenizer, stopword filter, Snowball stemmer pipeline and document deserializer for the cran.all.1400 corpus.")
+ (depends
+  (ocaml
+   (>= 5.5.0))
+  (dune
+   (>= 3.24))
+  stem
+  base)
  (tags
-  ("add topics" "to describe" your project)))
+  ("information-retrieval" "nlp" "cranfield")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
