@@ -13,14 +13,14 @@ let add_occurrence tbl word doc_id =
       Hashtbl.add htbl doc_id 1
     end
 
-let build_inverse_index (documents : document list) =
-  let inverse_index : (string, (int, int) Hashtbl.t) Hashtbl.t =
+let build_inverted_index (documents : document list) =
+  let inverted_index : (string, (int, int) Hashtbl.t) Hashtbl.t =
     Hashtbl.create 16
   in
   List.iter
-    (fun doc ->
+    (fun (doc:document) ->
       List.iter
-        (fun word -> add_occurrence inverse_index word doc.index)
+        (fun word -> add_occurrence inverted_index word doc.index)
         doc.text)
     documents;
-  inverse_index
+  inverted_index
