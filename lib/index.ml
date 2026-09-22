@@ -1,4 +1,4 @@
-open Desserialize
+open Document
 
 let add_occurrence tbl word doc_id =
   match Hashtbl.find_opt tbl word with

@@ -10,8 +10,12 @@ let word_list str =
   |> List.filter (fun c -> not @@ String.equal c "")
 
 
-let tokenize t =
-  String.map (function '\n' | '\r' | '\t' -> ' ' | c -> c) t 
+let tokenize text =
+  String.map (function '\n' | '\r' | '\t' -> ' ' | c -> c) text
   |> filter_chars_in_string match_punctuations
   |> String.split_all ~sep:" "
   |> List.filter (fun c -> not @@ String.equal c "")
+
+let clean_tokens (words : string list) =
+  List.map (filter_chars_in_string match_punctuations) words |>
+  List.filter (fun c -> not @@ String.equal c "") 

@@ -1,7 +1,7 @@
 let words_of_file filename =
   let file = In_channel.open_text filename in
   let lines =
-    In_channel.input_all file |> String.replace_all ~sub:"\n" ~by:" "
+    In_channel.input_all file |> String.map (function '\n' | '\r' | '\t' -> ' ' | c -> c)
   in
   let words =
     String.split_all ~sep:" " lines
@@ -23,3 +23,4 @@ let take_in_between word_list first last =
 let int_of_string_singleton = function
   | [ s ] -> int_of_string s
   | _ -> failwith "expected a singleton list"
+
