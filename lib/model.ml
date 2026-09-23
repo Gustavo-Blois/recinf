@@ -71,34 +71,48 @@ let bm25 ~query ~documents ~inverted_index ~(params : bm25_params) =
 let get_vocabulary ~inverted_index =
   Hashtbl.to_seq inverted_index |> Seq.map (fun (x,_) -> x) |> List.of_seq
 
-let vector_score ~query ~document ~inverted_index ~(stats : corpus_stats) ~vocabulary =
-   let df t =
-    float_of_int @@ Hashtbl.length
-    @@ Option.value ~default:(Hashtbl.create 1) (Hashtbl.find_opt inverted_index t)
-  in
-  let frequency term =
-    let document_table =
-      Option.value ~default:(Hashtbl.create 1) (Hashtbl.find_opt inverted_index term)
-    in
-    float_of_int @@ Option.value ~default:0 (Hashtbl.find_opt document_table document.index)
-  in
 
-  let count_occurrences term text = 
-    List.fold_left (fun acc word ->
-      if (String.equal word term) then acc +. 1.0
-      else acc
-      ) 0.0 text 
-    in
+let sum_list_of_float l = 
+  List.fold_left (fun acc x ->
+    acc +. x
+    ) 0.0 l
+
+
+
+let vector_score ~query ~document ~inverted_index ~(stats : corpus_stats) ~vocabulary =
+  let df t =
+    match Hashtbl.find_opt inverted_index t with
+    | None -> 0.0
+    | Some tbl -> float_of_int (Hashtbl.length tbl)
+  in
+  let doc_freq term =
+    match Hashtbl.find_opt inverted_index term with
+    | None -> 0.0
+    | Some tbl -> float_of_int (Option.value ~default:0 (Hashtbl.find_opt tbl document.index))
+  in
+  let count_occurrences term text =
+    List.fold_left (fun acc w -> if String.equal w term then acc +. 1.0 else acc) 0.0 text
+  in
+  let idf term = Float.log (stats.n /. (1.0 +. df term)) in
+  let tf_weight freq = if freq <= 0.0 then 0.0 else 1.0 +. Float.log freq in
 
   let query_vector =
-    List.map (fun term ->
-      (1.0 +. Float.log (frequency term)) *. (Float.log (stats.n /. (count_occurrences term query.text)))
-      ) vocabulary
-    in
+    List.map (fun t -> tf_weight (count_occurrences t query.text) *. idf t) vocabulary
+  in
   let document_vector =
-    List.map (fun term ->
-      (1.0 +. Float.log (frequency term)) *. (Float.log (stats.n /. (count_occurrences term query.text)))
-      ) vocabulary
-    in
+    List.map (fun t -> tf_weight (doc_freq t) *. idf t) vocabulary
+  in
+
+  let dot = sum_list_of_float (List.map2 ( *. ) query_vector document_vector) in
+  let norm v = Float.sqrt (sum_list_of_float (List.map (fun x -> x *. x) v)) in
+  let denom = norm document_vector *. norm query_vector in
+  if denom = 0.0 then 0.0 else dot /. denom
 
   
+let vector ~query ~documents ~inverted_index ~(params : bm25_params) = 
+  let stats = compute_corpus_stats documents in
+  let vocabulary = get_vocabulary ~inverted_index in
+  List.map
+  (fun (document : document) ->
+    {docId = document.index ; score = vector_score ~query ~document ~inverted_index ~stats ~vocabulary})
+  documents

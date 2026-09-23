@@ -10,12 +10,6 @@ type pipeline_config = {
 }
 
 
-type config = {
-  pipeline: pipeline_config;
-  model: model
-}
-
-
 
 let all_pipeline_configs =
   [ { stemming = true;  stopwords = true  };
