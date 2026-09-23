@@ -1,3 +1,5 @@
 (test
  (name test_recinf)
- (libraries recinf))
+ (libraries recinf)
+ (deps
+  (glob_files_rec ../data/**)))

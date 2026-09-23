@@ -24,3 +24,19 @@ let int_of_string_singleton = function
   | [ s ] -> int_of_string s
   | _ -> failwith "expected a singleton list"
 
+
+(* Data and results paths are relative to the project root. Find it by walking
+   up from the current directory (then from the executable's, for
+   `dune exec` launched elsewhere) until data/cran.all.1400 shows up. *)
+let find_project_root () =
+  let marker = Filename.concat "data" "cran.all.1400" in
+  let rec up dir =
+    if Sys.file_exists (Filename.concat dir marker) then Some dir
+    else
+      let parent = Filename.dirname dir in
+      if String.equal parent dir then None else up parent
+  in
+  let absolute p = if Filename.is_relative p then Filename.concat (Sys.getcwd ()) p else p in
+  match up (Sys.getcwd ()) with
+  | Some _ as root -> root
+  | None -> up (Filename.dirname (absolute Sys.executable_name))

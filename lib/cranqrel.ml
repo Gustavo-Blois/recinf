@@ -1,18 +1,25 @@
-let relevant_documents_table filename =
-  let tbl = Hashtbl.create 16 in
+(* Each line of cranqrel is "<query> <doc> <grade>", where the query number is
+   the 1-based position of the query in cran.qry (NOT the id in its ".I"
+   line, which skips numbers). Grades: 1 (complete answer) .. 4 (minimum
+   interest); -1 means not relevant. *)
+let judgments_table filename =
+  let tbl : (int, (int * int) list) Hashtbl.t = Hashtbl.create 256 in
   let file = In_channel.open_text filename in
   let lines =
     In_channel.input_all file
     |> String.split_all ~sep:"\n"
-    |> List.filter (fun l -> not (String.equal (String.trim l) ""))
-    |> List.map (String.split_all ~sep:" ")
+    |> List.map (fun l ->
+           String.split_all ~sep:" " (String.trim l)
+           |> List.filter (fun w -> not (String.equal w "")))
+    |> List.filter (fun l -> l <> [])
   in
   List.iter
-    (fun line ->
-      let query_idx = int_of_string (List.hd line) in
-      let doc_idx = int_of_string (List.nth line 1) in
-      let existing = Option.value ~default:[] (Hashtbl.find_opt tbl query_idx) in
-      Hashtbl.replace tbl query_idx (doc_idx :: existing))
+    (function
+      | [ q; d; g ] ->
+          let q = int_of_string q in
+          let existing = Option.value ~default:[] (Hashtbl.find_opt tbl q) in
+          Hashtbl.replace tbl q ((int_of_string d, int_of_string g) :: existing)
+      | _ -> failwith "malformed qrel line")
     lines;
   In_channel.close file;
   tbl

@@ -1,0 +1,5 @@
+query,cran_id,model,version,P@10,R@10,F1@10,AP@all,AP@10,NDCG@10,top10,text
+13,26,vector,original,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,496 903 643 313 520 199 38 507 880 440,"what is the basic mechanism of the transonic aileron buzz"
+13,26,vector,modified,0.0000,0.0000,0.0000,0.0065,0.0000,0.0000,903 496 643 313 520 199 38 507 28 1109,"what is the basic mechanism of the transonic aileron unsteadiness ."
+13,26,bm25(k1=1.2;b=0.75),original,0.0000,0.0000,0.0000,0.0000,0.0000,0.0000,496 903 520 313 38 1268 440 880 643 199,"what is the basic mechanism of the transonic aileron buzz"
+13,26,bm25(k1=1.2;b=0.75),modified,0.0000,0.0000,0.0000,0.0059,0.0000,0.0000,903 496 520 313 28 38 1268 440 880 643,"what is the basic mechanism of the transonic aileron unsteadiness ."

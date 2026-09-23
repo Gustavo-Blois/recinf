@@ -1,0 +1,6 @@
+# Item 8: versões modificadas de consultas do Cranfield.
+# Formato (como o cran.qry): ".I <id>" com o id do cran.qry (não a posição), depois ".T <texto modificado>".
+# O texto pode continuar nas linhas seguintes até o próximo .I. Linhas em branco e iniciadas por # são ignoradas.
+# Rode: dune exec recinf -- modify --file data/modified_queries.txt
+.I 26
+.T what is the basic mechanism of the transonic aileron unsteadiness .

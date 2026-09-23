@@ -19,7 +19,7 @@ let create_documents word_list =
     let title = take_in_between word_list ".T" ".A" in
     let authors = take_in_between word_list ".A" ".B" in
     let bibliography = take_in_between word_list ".B" ".W" in
-    let text = take_in_between word_list ".W" ".I" in
+    let text = Token.clean_tokens @@ take_in_between word_list ".W" ".I" in
     let is_doc_marker x = String.equal x ".I" in
     let word_list =
       word_list
@@ -35,4 +35,4 @@ let create_documents word_list =
         documents := document :: !documents;
         deserialize_while_not_empty next_words
   in
-  deserialize_while_not_empty word_list
+  deserialize_while_not_empty word_list |> List.rev

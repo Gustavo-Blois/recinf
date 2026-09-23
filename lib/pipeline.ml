@@ -1,7 +1,6 @@
 open Document
 open Token
 open Stopwords 
-open Model
 open Query
 
 type pipeline_config = {
@@ -10,21 +9,16 @@ type pipeline_config = {
 }
 
 
+let stemmer =
+  lazy
+    (let language =
+       List.find
+         (fun (l : Snowball.Language.t) -> String.equal (l :> string) "english")
+         Snowball.languages
+     in
+     Snowball.create language)
 
-let all_pipeline_configs =
-  [ { stemming = true;  stopwords = true  };
-    { stemming = true;  stopwords = false };
-    { stemming = false; stopwords = true  };
-    { stemming = false; stopwords = false } ]
-
-let stem words = 
-  let language =
-    List.find
-      (fun (l : Snowball.Language.t) -> String.equal (l :> string) "english")
-      Snowball.languages
-  in
-  let stemmer = Snowball.create language in
-  List.map (Snowball.stem stemmer) words
+let stem words = List.map (Snowball.stem (Lazy.force stemmer)) words
 
 let normalize words =
   List.map (String.lowercase_ascii) words
