@@ -36,36 +36,6 @@ let mean f a = Array.fold_left (fun s m -> s +. f m) 0.0 a /. float_of_int (Arra
 let delta_metric metric c i = Metrics.value metric c.bm25.(i) -. Metrics.value metric c.vector.(i)
 let delta_ap c i = delta_metric Metrics.Ap c i
 
-(* Two-sided Wilcoxon signed-rank test, normal approximation with tie and
-   continuity corrections. Zero differences are dropped. *)
-let wilcoxon_p diffs =
-  let nz = List.filter (fun d -> Float.abs d > eps) diffs in
-  let n = List.length nz in
-  if n = 0 then 1.0
-  else begin
-    let sorted =
-      nz
-      |> List.map (fun d -> (Float.abs d, d > 0.0))
-      |> List.sort (fun (a, _) (b, _) -> Float.compare a b)
-      |> Array.of_list
-    in
-    let w_plus = ref 0.0 and tie_corr = ref 0.0 and i = ref 0 in
-    while !i < n do
-      let j = ref !i in
-      while !j + 1 < n && Float.abs (fst sorted.(!j + 1) -. fst sorted.(!i)) <= eps do incr j done;
-      let t = float_of_int (!j - !i + 1) in
-      let avg_rank = float_of_int (!i + !j + 2) /. 2.0 in
-      for k = !i to !j do if snd sorted.(k) then w_plus := !w_plus +. avg_rank done;
-      tie_corr := !tie_corr +. ((t *. t *. t) -. t);
-      i := !j + 1
-    done;
-    let nf = float_of_int n in
-    let mean = nf *. (nf +. 1.0) /. 4.0 in
-    let var = (nf *. (nf +. 1.0) *. ((2.0 *. nf) +. 1.0) /. 24.0) -. (!tie_corr /. 48.0) in
-    if var <= 0.0 then 1.0
-    else Float.erfc (Float.max 0.0 (Float.abs (!w_plus -. mean) -. 0.5) /. Float.sqrt var /. Float.sqrt 2.0)
-  end
-
 type stat = {
   comp : comparison;
   metric : Metrics.metric;
@@ -74,7 +44,6 @@ type stat = {
   ties : int;
   clear_bm25 : int;
   clear_vector : int;
-  p_value : float;
 }
 
 let stat ?(metric = Metrics.Ap) comp =
@@ -86,8 +55,7 @@ let stat ?(metric = Metrics.Ap) comp =
     wins_vector = count (fun d -> d < -.eps);
     ties = count (fun d -> Float.abs d <= eps);
     clear_bm25 = count (fun d -> d >= clear_gap);
-    clear_vector = count (fun d -> d <= -.clear_gap);
-    p_value = wilcoxon_p ds }
+    clear_vector = count (fun d -> d <= -.clear_gap) }
 
 type category = Bm25_better | Vector_better | Both_poor
 
@@ -138,14 +106,14 @@ let rec take k = function x :: r when k > 0 -> x :: take (k - 1) r | _ -> []
 let write_summary ~output_dir stats =
   let oc = Out_channel.open_text (Filename.concat output_dir "comparison_summary.csv") in
   Printf.fprintf oc
-    "preprocessing,k1,b,metric,mean_vector,mean_bm25,delta,wins_bm25,wins_vector,ties,clear_bm25,clear_vector,wilcoxon_p\n";
+    "preprocessing,k1,b,metric,mean_vector,mean_bm25,delta,wins_bm25,wins_vector,ties,clear_bm25,clear_vector\n";
   List.iter
     (fun s ->
       let c = s.comp in
       let mv = mean (Metrics.value s.metric) c.vector and mb = mean (Metrics.value s.metric) c.bm25 in
-      Printf.fprintf oc "%s,%g,%g,%s,%.4f,%.4f,%+.4f,%d,%d,%d,%d,%d,%.3g\n" c.preprocessing
+      Printf.fprintf oc "%s,%g,%g,%s,%.4f,%.4f,%+.4f,%d,%d,%d,%d,%d\n" c.preprocessing
         c.params.k1 c.params.b (Metrics.mean_name s.metric) mv mb (mb -. mv) s.wins_bm25
-        s.wins_vector s.ties s.clear_bm25 s.clear_vector s.p_value)
+        s.wins_vector s.ties s.clear_bm25 s.clear_vector)
     stats;
   Out_channel.close oc
 
@@ -357,6 +325,21 @@ let b_effect ~documents ~(queries : Query.query list) ~preprocessing ~k1 =
          match Float.compare y.b_spread x.b_spread with
          | 0 -> Int.compare x.b_query.index y.b_query.index
          | c -> c)
+
+(* Not tied to one item: every query (not just the pre-picked candidates),
+   both models' AP@all and P@10 under one configuration, so the group can
+   browse and pick their own queries (e.g. for item 8) instead of only
+   seeing the candidates this program already ranked for items 5-7. *)
+let write_query_overview ~output_dir ~(queries : Query.query list) (comp : comparison) =
+  let oc = Out_channel.open_text (Filename.concat output_dir "queries.csv") in
+  Printf.fprintf oc "query,cran_id,n_terms,n_relevant,AP_vector,P10_vector,AP_bm25,P10_bm25,dAP,text\n";
+  List.iteri
+    (fun i (q : Query.query) ->
+      Printf.fprintf oc "%d,%d,%d,%d,%.4f,%.2f,%.4f,%.2f,%+.4f,\"%s\"\n" q.index q.original_id
+        (List.length q.text) (List.length q.relevant_documents) comp.vector.(i).ap comp.vector.(i).p10
+        comp.bm25.(i).ap comp.bm25.(i).p10 (delta_ap comp i) (Display.raw_text q))
+    queries;
+  Out_channel.close oc
 
 (* Item 5 (aggregate comparison): writes comparison_summary.csv. *)
 let compare_models ~output_dir runs =

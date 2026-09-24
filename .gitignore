@@ -28,3 +28,16 @@ _opam/
 *~
 .*.swp
 .DS_Store
+
+# LaTeX build artifacts (relatorio.tex is compiled locally; keep the .tex and .pdf, not the rest)
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+missfont.log
+texput.log
+
+# Submission zip (built locally, not part of the repo)
+*.zip

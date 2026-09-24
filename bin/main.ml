@@ -16,6 +16,18 @@ let usage =
                                      item 6: candidate queries in three categories (bm25 better, vector better,
                                      both poor); --top N per category (default 10); --detail N also prints the
                                      top-5 of both models for the first N of each. Writes results/{candidates.csv,case_studies.txt}
+  recinf queries [--preproc --k1 --b]
+                                     every query (not just the candidates from `cases`), with both models'
+                                     AP@all/P@10 under one configuration, its own number of terms and
+                                     relevant docs - to browse and pick queries yourself (e.g. for item 8).
+                                     Writes results/queries.csv
+  recinf errors [--model vector|bm25|both] [--preproc --k1 --b] [--top N] [--detail N]
+                                     item 9: candidate mistakes across every query - non-relevant documents in the
+                                     first 5 ranks (false positives) and relevant documents outside the Top-10, or
+                                     never retrieved (false negatives). --top N rows per table (default 15);
+                                     --detail N also prints the query, both models' top-5 and an Explain
+                                     breakdown of the document for the first N of each. --model picks which
+                                     ranking(s) to scan (default both). Writes results/error_analysis.csv
   recinf b-effect [Q] [--preproc --k1] [--top N]
                                      item 7: queries whose AP changes most with b (k1 fixed; default 1.2);
                                      with Q, the top-10 of that query under b=0 and b=1. Writes results/b_sensitivity.csv
@@ -108,18 +120,18 @@ let metric_flag flags =
 let print_stats ~metric stats =
   let mean = Metrics.mean_name metric in
   Printf.printf "%s\n%s\n" (Ansi.bold (Printf.sprintf "Vector vs BM25 by %s, all configurations" mean))
-    (Ansi.dim "delta = BM25 - vector | bm25> / vec> = queries won by each | wilcoxon_p on per-query differences");
-  Printf.printf "%-20s %-4s %-5s %9s %9s %8s %6s %6s %5s %10s\n" "preprocessing" "k1" "b"
-    (mean ^ "_vec") (mean ^ "_bm25") "delta" "bm25>" "vec>" "ties" "wilcoxon_p";
+    (Ansi.dim "delta = BM25 - vector | bm25> / vec> = queries won by each");
+  Printf.printf "%-20s %-4s %-5s %9s %9s %8s %6s %6s %5s\n" "preprocessing" "k1" "b"
+    (mean ^ "_vec") (mean ^ "_bm25") "delta" "bm25>" "vec>" "ties";
   List.iter
     (fun (s : Analysis.stat) ->
       if s.metric = metric then begin
         let c = s.comp in
         let m a = Analysis.mean (Metrics.value metric) a in
-        Printf.printf "%-20s %-4g %-5g %9.4f %9.4f %s %6d %6d %5d %10.3g\n" c.preprocessing c.params.k1
+        Printf.printf "%-20s %-4g %-5g %9.4f %9.4f %s %6d %6d %5d\n" c.preprocessing c.params.k1
           c.params.b (m c.vector) (m c.bm25)
           (colored_delta ~fmt:"%+8.4f" (m c.bm25 -. m c.vector))
-          s.wins_bm25 s.wins_vector s.ties s.p_value
+          s.wins_bm25 s.wins_vector s.ties
       end)
     stats
 
@@ -128,15 +140,15 @@ let print_metrics_table stats (comp : Analysis.comparison) =
   Printf.printf "\n%s\n%s\n"
     (Ansi.bold (Printf.sprintf "All metrics: %s, BM25 k1=%g b=%g vs vector" comp.preprocessing comp.params.k1 comp.params.b))
     (Ansi.dim "delta = BM25 - vector | wins counted per query | clear = difference >= 0.1");
-  Printf.printf "%-8s %9s %9s %8s %6s %6s %5s %6s %6s %10s\n" "metric" "vector" "bm25" "delta" "bm25>" "vec>"
-    "ties" "clear+" "clear-" "wilcoxon_p";
+  Printf.printf "%-8s %9s %9s %8s %6s %6s %5s %6s %6s\n" "metric" "vector" "bm25" "delta" "bm25>" "vec>"
+    "ties" "clear+" "clear-";
   List.iter
     (fun (s : Analysis.stat) ->
       if s.comp.preprocessing = comp.preprocessing && s.comp.params = comp.params then begin
         let m a = Analysis.mean (Metrics.value s.metric) a in
-        Printf.printf "%-8s %9.4f %9.4f %s %6d %6d %5d %6d %6d %10.3g\n" (Metrics.mean_name s.metric)
+        Printf.printf "%-8s %9.4f %9.4f %s %6d %6d %5d %6d %6d\n" (Metrics.mean_name s.metric)
           (m comp.vector) (m comp.bm25) (colored_delta ~fmt:"%+8.4f" (m comp.bm25 -. m comp.vector))
-          s.wins_bm25 s.wins_vector s.ties s.clear_bm25 s.clear_vector s.p_value
+          s.wins_bm25 s.wins_vector s.ties s.clear_bm25 s.clear_vector
       end)
     stats
 
@@ -345,6 +357,30 @@ let () =
           ~top ~detail;
         print_endline "\nwrote results/b_sensitivity.csv"
       end
+  | "queries" :: rest ->
+      let _, flags = parse rest in
+      let documents, queries = load () in
+      let runs = Experiment.run_all ~documents ~queries ~output_dir in
+      let comp = comparison_of_flags runs flags in
+      Analysis.write_query_overview ~output_dir ~queries comp;
+      print_endline "wrote results/queries.csv"
+  | "errors" :: rest ->
+      let _, flags = parse rest in
+      let documents, queries = load () in
+      let env = env_of flags ~documents ~queries in
+      let bm25 = bm25_params flags in
+      let model_flag = Option.value ~default:"both" (flag flags "--model") in
+      let models = Errors.models_of_flag ~bm25 model_flag in
+      let fps, fns = Errors.collect env ~models queries in
+      let preprocessing = Option.value ~default:"stopwords+stemming" (flag flags "--preproc") in
+      if not (Sys.file_exists output_dir) then Sys.mkdir output_dir 0o755;
+      Errors.write_csv (Filename.concat output_dir "error_analysis.csv") ~preprocessing fps fns;
+      let top = match flag flags "--top" with Some n -> int_arg "--top" n | None -> 15 in
+      let detail = match flag flags "--detail" with Some n -> int_arg "--detail" n | None -> 0 in
+      Errors.print_false_positives ~top fps;
+      Errors.print_false_negatives ~top fns;
+      if detail > 0 then Errors.print_detail env ~bm25 ~models ~detail fps fns;
+      print_endline "\nwrote results/error_analysis.csv"
   | "plot" :: rest ->
       let _, flags = parse rest in
       let documents, queries = load () in

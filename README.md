@@ -1,6 +1,8 @@
 # recinf — Modelo Vetorial e BM25 sobre a coleção Cranfield
 
-Trabalho Prático 1 de SCC0282 Recuperação de Informação (ICMC/USP).
+Trabalho Prático 1 de SCC0282 Recuperação de Informação (ICMC/USP). O relatório de desempenho está em
+[`relatorio.pdf`](relatorio.pdf) (fonte em `relatorio.tex`); os resultados completos dos experimentos
+usados nele estão em [`results/`](results/), descritos mais abaixo.
 
 ## Integrantes
 
@@ -10,9 +12,10 @@ Trabalho Prático 1 de SCC0282 Recuperação de Informação (ICMC/USP).
 
 ## Base de dados
 
-Coleção **Cranfield** (1400 documentos, 225 consultas, julgamentos de relevância).
-Fontes: [ir_datasets – Cranfield](https://ir-datasets.com/cranfield.html), também
-disponível na coleção Cranfield da University of Glasgow e em `irds/cranfield` no Hugging Face.
+Coleção **Cranfield** (1400 documentos, 225 consultas, julgamentos de relevância), obtida em
+[University of Glasgow – Cranfield Collection](https://ir.dcs.gla.ac.uk/resources/test_collections/cran/).
+Também disponível em [ir_datasets – Cranfield](https://ir-datasets.com/cranfield.html) e em
+`irds/cranfield` no Hugging Face.
 
 Os três arquivos originais já estão versionados em `data/`, então não é preciso baixar nada:
 
@@ -94,6 +97,8 @@ dune exec recinf -- show 167        # top-N dos dois modelos para a consulta 167
 dune exec recinf -- explain 167 553 # contribuição de cada termo ao score de um documento
 dune exec recinf -- modify 167 "ablative mass loss hypersonic"   # consulta modificada (item 8)
 dune exec recinf -- modify --file data/modified_queries.txt      # várias, grava results/modifications.csv
+dune exec recinf -- queries         # todas as 225 consultas (não só as candidatas de `cases`), com AP@all/P@10 dos dois modelos, para escolher consultas por conta própria (ex.: item 8)
+dune exec recinf -- errors          # item 9: falsos positivos (não relevantes no top-5) e falsos negativos (relevantes fora do Top-10) em toda a coleção; --detail N imprime a consulta e o breakdown de `explain`
 dune exec recinf -- help            # todas as opções
 ```
 
@@ -113,10 +118,12 @@ Todos gerados pelos comandos acima; reprodutíveis (não há aleatoriedade).
 | `summary.csv` | P@10, R@10, F1@10, MAP, MRR, NDCG@10 por configuração (40 execuções) |
 | `per_query.csv` | as mesmas métricas por consulta, por configuração |
 | `rankings.csv` | posição, documento, score e grau de relevância; top-100 nas execuções base (vetorial e BM25 k1=1,2 b=0,75), top-10 nas demais |
-| `comparison_summary.csv` | item 5: uma linha por (configuração, métrica): média de cada modelo, diferença, vitórias por consulta, empates e p-valor de Wilcoxon, para MAP, P@10, R@10, F1@10, MRR e NDCG@10 |
+| `comparison_summary.csv` | item 5: uma linha por (configuração, métrica): média de cada modelo, diferença, vitórias por consulta e empates, para MAP, P@10, R@10, F1@10, MRR e NDCG@10 |
 | `largest_differences.csv` | item 5: as 10 consultas de maior diferença em cada direção **para cada métrica** (coluna `ranked_by`; empates desfeitos pela diferença de AP@all), com todas as métricas dos dois modelos, nº de termos, nº de relevantes e tamanho relativo dos relevantes. Configuração: `--preproc --k1 --b` (padrão stopwords+stemming, 1,2, 0,75) |
 | `candidates.csv` | item 6: as 10 melhores candidatas por categoria (BM25 melhor, vetorial melhor, ambos ruins) |
 | `case_studies.txt` | item 6: top-5 dos dois modelos, com relevantes marcados, para as candidatas |
 | `b_sensitivity.csv` | item 7: consultas cujo AP mais varia com b (k1 fixo), tamanho relativo dos relevantes e sobreposição do top-10 entre b=0 e b=1 |
 | `plots/` | gráficos em PNG e PDF, cada um com seu script `.gp` (dados embutidos, editável) |
 | `modifications.csv` | item 8: métricas e top-10 das consultas originais e modificadas |
+| `queries.csv` | todas as 225 consultas (não só as candidatas de `candidates.csv`), com nº de termos, nº de relevantes, AP@all/P@10 dos dois modelos e dAP, para escolher consultas por conta própria |
+| `error_analysis.csv` | item 9: falsos positivos (não relevantes nas 5 primeiras posições) e falsos negativos (relevantes fora do Top-10, inclusive nunca recuperados) em toda a coleção |
